@@ -1,37 +1,29 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 import csv
 import os
 
 app = Flask(__name__)
+CORS(app)
 
-# CSV 파일 경로 설정
-CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "hospitals.csv")
-
-def load_hospitals():
-    hospitals = []
-
-    # CSV가 아직 없으면 빈 리스트 반환 (초기 단계 대비)
-    if not os.path.isfile(CSV_PATH):
-        return hospitals
-
-    with open(CSV_PATH, encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            hospitals.append(row)
-
-    return hospitals
-
+CSV_FILE = os.path.join(os.path.dirname(__file__), "data", "hospitals.csv")
 
 @app.route("/")
 def home():
-    return "WITH Flask Server Running"
-
+    return "WITH Flask API Running (CSV Mode)"
 
 @app.route("/api/hospitals")
 def get_hospitals():
-    data = load_hospitals()
-    return jsonify(data)
+    region = request.args.get("region")
+    result = []
 
+    with open(CSV_FILE, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if region in row["주소"]:
+                result.append(row)
+
+    return jsonify(result)
 
 if __name__ == "__main__":
     app.run(debug=True)
