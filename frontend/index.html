@@ -2,34 +2,104 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8" />
-    <title>WITH - Where Is The Hospital</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WITH - 병원 찾기</title>
     <link rel="stylesheet" href="style.css" />
+    <style>
+        /* 1. 배경 및 전체 레이아웃 수정 */
+        body { 
+            margin: 0; padding: 0; 
+            font-family: 'Malgun Gothic', sans-serif; 
+            background-color: #f5f5f5; /* 배경은 살짝 회색 */
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; /* 중앙 정렬 */
+        }
+        
+        /* 2. 상단 컨트롤 박스 */
+        #control-box { 
+            width: 90%; max-width: 1200px;
+            background: #fff; 
+            padding: 15px 20px; 
+            margin-top: 20px; 
+            border-radius: 10px 10px 0 0; 
+            border-bottom: 1px solid #eee; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+            box-sizing: border-box; 
+        }
+        
+        /* 3. 메인 컨테이너 (지도+목록) */
+        .container { 
+            width: 90%; max-width: 1200px; 
+            height: 80vh; 
+            display: flex; 
+            background: #fff;
+            border-radius: 0 0 10px 10px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+            overflow: hidden;
+            margin-bottom: 20px; 
+        }
+        
+        /* 왼쪽 지도 */
+        #map { flex: 7; height: 100%; }
+
+        /* 오른쪽 목록 */
+        .right-panel { 
+            flex: 3; 
+            background: #fff; 
+            border-left: 1px solid #eee; 
+            display: flex; flex-direction: column;
+            min-width: 320px; max-width: 450px;
+        }
+
+        .panel-header { padding: 15px; font-weight: bold; border-bottom: 1px solid #eee; background-color: #fafafa; }
+
+        #hospital-list { flex: 1; overflow-y: auto; padding: 10px; }
+
+        .hospital-item { 
+            background: #fff; padding: 15px; margin-bottom: 10px; 
+            border: 1px solid #eee; border-radius: 8px; cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .hospital-item:hover { border-color: #4CAF50; background-color: #f9fff9; }
+        
+        /* 선택된 아이템 (빨간 테두리) */
+        .hospital-item.active { border: 2px solid #FF5A5A; background-color: #FFF0F0; transform: scale(1.01); }
+
+        select, input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        #myLocationBtn { background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        #myLocationBtn:hover { background: #45a049; }
+        .logo { font-size: 1.2em; font-weight: bold; color: #4CAF50; margin-right: auto; }
+    </style>
 </head>
 
 <body>
-    <h1>WITH (Where Is The Hospital)</h1>
-
-    <div id="region-box">
-        <label for="region">지역 선택:</label>
-        <select id="region">
-            <option value="">-- 선택 --</option>
-            <option value="서울">서울</option>
-            <option value="인천">인천</option>
-            <option value="부산">부산</option>
+    <div id="control-box">
+        <div class="logo">🏥 WITH</div>
+        <select id="radiusSelect">
+            <option value="1">1km</option>
+            <option value="3" selected>3km</option>
+            <option value="5">5km</option>
         </select>
-
-        <button id="loadBtn">병원 조회</button>
+        <input type="text" id="keywordInput" placeholder="예: 내과, 치과">
+        <button id="myLocationBtn">🔍 검색</button>
+        <span id="status-msg" style="font-size: 0.9em; color: #666; margin-left: 10px;"></span>
     </div>
 
-    <h2>병원 목록</h2>
-    <div id="hospital-list"></div>
+    <div class="container">
+        <div id="map"></div>
+        <div class="right-panel">
+            <div class="panel-header">검색 결과 목록</div>
+            <div id="hospital-list">
+                <div style="text-align: center; color: #999; margin-top: 50px;">조건을 선택하고 검색하세요.</div>
+            </div>
+        </div>
+    </div>
 
-    <h2>지도</h2>
-    <div id="map" style="width: 100%; height: 400px; margin-top: 20px;"></div>
-
-    <!-- 카카오 지도 SDK (반드시 autoload=false) -->
-   
-    <!-- 프론트 JS -->
+    <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=a46563fe024e95ee04ff8be9ead266ea&libraries=services&autoload=false"></script>
     <script src="script.js"></script>
 </body>
 </html>
