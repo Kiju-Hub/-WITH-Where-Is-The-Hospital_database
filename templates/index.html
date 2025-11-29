@@ -4,34 +4,44 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WITH - 내 주변 병원 찾기</title>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
-    
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
-    
+
+    <!-- SUIT 폰트 -->
+    <link href="https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/static/woff2/SUIT.css" rel="stylesheet">
+
     <style>
         body {
             margin: 0;
             padding: 0;
-            font-family: 'Noto Sans KR', sans-serif;
-            background-color: #f0f2f5;
+            font-family: 'SUIT', 'Noto Sans KR', sans-serif;
+            background-color: #fff0f0;
             height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
         }
+
+        /* 제목헤더 */
         header {
             width: 100%;
             background: linear-gradient(135deg, #40cfc6, #4CAF50);
-            padding: 20px 0 40px 0;
+            padding: 25px 0 40px 0;
             text-align: center;
             color: white;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
+
         .logo-area h1 {
             margin: 0;
-            font-size: 2.5rem;
-            font-weight: 700;
+            font-size: 3.3rem;
+            font-weight: 900;
+            color: #fff0f0;   /* 제목 색 변경 */
         }
+
+        .logo-area p {
+            margin-top: 8px;
+            font-weight: 500;
+            color: #fff0f0;   /* 부제 색 변경 */
+        }
+
         #control-box {
             width: 90%;
             max-width: 1000px;
@@ -42,60 +52,61 @@
             align-items: center;
             gap: 15px;
             margin-top: -30px;
-            z-index: 100;
             box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-            box-sizing: border-box;
         }
+
         select, input {
             padding: 12px 15px;
             border: 1px solid #ddd;
             border-radius: 25px;
             font-size: 15px;
-            outline: none;
         }
+
         input {
             flex: 1;
         }
 
-        /* ---------------- 버튼 공통 스타일 ---------------- */
+        /* 공통 버튼 스타일 */
         button {
-            background: #ffffff;
             border-radius: 25px;
             padding: 12px 25px;
-            font-weight: bold;
+            font-weight: 700;
             cursor: pointer;
-            border: 2px solid transparent;
+            background: #fff0f0;
             transition: 0.2s;
         }
 
-        /* 병원 찾기 버튼 - 초록색 */
+        /* 병원 버튼 */
         #myLocationBtn {
-            border-color: #44b44a;
+            border: 2px solid #44b44a;
             color: #2e7d32;
         }
-        #myLocationBtn:hover {
+        #myLocationBtn:hover,
+        #myLocationBtn.active {
             background: #44b44a;
-            color: #fff;
+            color: white;
         }
 
-        /* 응급실 찾기 버튼 - 빨간색 */
+        /* 응급실 버튼 */
         #emergencyBtn {
-            border-color: #D32F2F;
+            border: 2px solid #D32F2F;
             color: #b71c1c;
         }
-        #emergencyBtn:hover {
+        #emergencyBtn:hover,
+        #emergencyBtn.active {
             background: #D32F2F;
-            color: #fff;
+            color: white;
         }
 
-        /* 약국 찾기 버튼 - 주황색 */
+        /* 약국 버튼 */
         #pharmacyBtn {
-            border-color: #fa8253;
+            border: 2px solid #fa8253;
             color: #d35c2d;
         }
-        #pharmacyBtn:hover {
+        #pharmacyBtn:hover,
+        #pharmacyBtn.active {
             background: #fa8253;
-            color: #fff;
+            color:white;
         }
 
         .container {
@@ -106,98 +117,109 @@
             background: #fff;
             border-radius: 20px;
             overflow: hidden;
-            margin: 20px 0;
+            margin-top: 25px;
             border: 1px solid #eee;
         }
-        #map {
-            flex: 2;
-            height: 100%;
-            min-height: 500px;
-        }
+
+        #map { flex: 2; min-height: 500px; }
+
         .right-panel {
             flex: 1;
-            background: #fff;
             border-left: 1px solid #eee;
             display: flex;
             flex-direction: column;
-            min-width: 350px;
         }
+
         .panel-header {
             padding: 18px 20px;
             font-weight: 700;
             border-bottom: 1px solid #eee;
         }
+
         #hospital-list {
             flex: 1;
             overflow-y: auto;
             padding: 15px;
         }
+
         .hospital-item {
             background: #fff;
-            padding: 20px;
-            margin-bottom: 15px;
+            padding: 18px;
             border: 1px solid #f0f0f0;
             border-radius: 12px;
+            margin-bottom: 15px;
             cursor: pointer;
+            transition: 0.2s;
         }
-        .hospital-item:hover {
+        .hospital-item.active {
             border-color: #4CAF50;
-        }
-        .detail-btn {
-            width: 100%;
-            padding: 10px;
-            background-color: #d84066;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            margin-top: 10px;
-            cursor: pointer;
+            background: #f8fff8;
         }
     </style>
 </head>
 
 <body>
-    <header>
-        <div class="logo-area">
-            <h1>WITH</h1>
-            <p>Where Is The Hospital - 내 주변 스마트 병원 찾기</p>
-        </div>
-    </header>
-
-    <div id="control-box">
-        <select id="radiusSelect">
-            <option value="1">1km (도보 15분)</option>
-            <option value="3" selected>3km (차량 10분)</option>
-            <option value="5">5km</option>
-            <option value="10">10km</option>
-        </select>
-        
-        <input type="text" id="keywordInput" placeholder="예: 내과, 야간진료">
-        
-        <button id="myLocationBtn">🔍 병원 찾기</button>
-        <button id="emergencyBtn">🚨 응급실 찾기</button>
-        <button id="pharmacyBtn" style="margin-left: 5px;">💊 약국 찾기</button>
-        
-        <div id="status-msg" style="display:none;"></div>
+<header>
+    <div class="logo-area">
+        <h1>WITH</h1>
+        <p>Where Is The Hospital - 내 주변 스마트 병원 찾기</p>
     </div>
+</header>
 
-    <div class="container">
-        <div id="map"></div>
+<div id="control-box">
+    <select id="radiusSelect">
+        <option value="1">1km</option>
+        <option value="3" selected>3km</option>
+        <option value="5">5km</option>
+        <option value="10">10km</option>
+    </select>
 
-        <div class="right-panel">
-            <div class="panel-header">📋 검색 결과 목록</div>
-            <div id="hospital-list">
-                <div style="text-align: center; color: #999; margin-top: 80px; line-height: 1.6;">
-                    <span style="font-size: 30px;">🏥</span><br><br>
-                    <strong>위치 권한</strong>을 허용하고<br>
-                    버튼을 눌러주세요.
-                </div>
+    <input type="text" id="keywordInput" placeholder="예: 내과, 야간진료">
+
+    <button id="myLocationBtn">🔍 병원 찾기</button>
+    <button id="emergencyBtn">🚨 응급실 찾기</button>
+    <button id="pharmacyBtn">💊 약국 찾기</button>
+
+    <div id="status-msg" style="display:none;"></div>
+</div>
+
+<div class="container">
+    <div id="map"></div>
+    <div class="right-panel">
+        <div class="panel-header">📋 검색 결과 목록</div>
+        <div id="hospital-list">
+            <div style="text-align:center; margin-top:80px; color:#888;">
+                🏥 위치 권한을 허용하고 버튼을 눌러주세요.
             </div>
         </div>
     </div>
+</div>
 
-    <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_key }}&libraries=services&autoload=false"></script>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+<script src="//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_key }}&libraries=services&autoload=false"></script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+<script>
+/* active 버튼 유지 */
+function setActiveButton(id) {
+    const ids = ["myLocationBtn", "emergencyBtn", "pharmacyBtn"];
+
+    ids.forEach(btn => {
+        const el = document.getElementById(btn);
+        if (btn === id) el.classList.add("active");
+        else el.classList.remove("active");
+    });
+}
+
+document.getElementById("myLocationBtn").addEventListener("click", () => {
+    setActiveButton("myLocationBtn");
+});
+document.getElementById("emergencyBtn").addEventListener("click", () => {
+    setActiveButton("emergencyBtn");
+});
+document.getElementById("pharmacyBtn").addEventListener("click", () => {
+    setActiveButton("pharmacyBtn");
+});
+</script>
 
 </body>
 </html>

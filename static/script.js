@@ -311,7 +311,21 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         markers = [];
     }
+    
+    function setActiveButton(btnId) {
+    const buttons = ["myLocationBtn", "emergencyBtn", "pharmacyBtn"];
 
+    buttons.forEach(id => {
+        const btn = document.getElementById(id);
+
+        if (id === btnId) {
+            btn.classList.add("active");
+        } else {
+            btn.classList.remove("active");
+        }
+    });
+    }
+    
     function findAndOpenDetail(name, lat, lng) {
         if (!ps) return;
         const options = { location: new kakao.maps.LatLng(lat, lng), radius: 50 };
@@ -324,3 +338,4 @@ document.addEventListener("DOMContentLoaded", function() {
         }, options);
     }
 });
+
