@@ -9,24 +9,150 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
     
     <style>
-        /* CSS 파일 로딩 전 깨짐 방지용 기본 스타일 */
-        body { margin: 0; padding: 0; font-family: 'Noto Sans KR', sans-serif; background-color: #f0f2f5; height: 100vh; display: flex; flex-direction: column; align-items: center; }
-        header { width: 100%; background: linear-gradient(135deg, #2E7D32, #4CAF50); padding: 20px 0 40px 0; text-align: center; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .logo-area h1 { margin: 0; font-size: 2.5rem; font-weight: 700; }
-        #control-box { width: 90%; max-width: 1000px; background: #fff; padding: 15px 25px; border-radius: 50px; display: flex; align-items: center; gap: 15px; margin-top: -30px; z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.15); box-sizing: border-box;}
-        select, input { padding: 12px 15px; border: 1px solid #ddd; border-radius: 25px; font-size: 15px; outline: none; }
-        input { flex: 1; }
-        button { border: none; padding: 12px 25px; border-radius: 25px; font-weight: bold; cursor: pointer; color: white; }
-        #myLocationBtn { background: #2E7D32; }
-        #emergencyBtn { background: #D32F2F; margin-left: 5px; }
-        .container { width: 90%; max-width: 1200px; flex: 1; display: flex; background: #fff; border-radius: 20px; overflow: hidden; margin: 20px 0; border: 1px solid #eee; }
-        #map { flex: 2; height: 100%; min-height: 500px; } 
-        .right-panel { flex: 1; background: #fff; border-left: 1px solid #eee; display: flex; flex-direction: column; min-width: 350px; }
-        .panel-header { padding: 18px 20px; font-weight: 700; border-bottom: 1px solid #eee; }
-        #hospital-list { flex: 1; overflow-y: auto; padding: 15px; }
-        .hospital-item { background: #fff; padding: 20px; margin-bottom: 15px; border: 1px solid #f0f0f0; border-radius: 12px; cursor: pointer; }
-        .hospital-item:hover { border-color: #4CAF50; }
-        .detail-btn { width: 100%; padding: 10px; background-color: #FAE100; border: none; border-radius: 8px; font-weight: bold; margin-top: 10px; cursor: pointer; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f0f2f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            width: 100%;
+            background: linear-gradient(135deg, #40cfc6, #4CAF50);
+            padding: 20px 0 40px 0;
+            text-align: center;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .logo-area h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        #control-box {
+            width: 90%;
+            max-width: 1000px;
+            background: #fff;
+            padding: 15px 25px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: -30px;
+            z-index: 100;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            box-sizing: border-box;
+        }
+        select, input {
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 15px;
+            outline: none;
+        }
+        input {
+            flex: 1;
+        }
+
+        /* ---------------- 버튼 공통 스타일 ---------------- */
+        button {
+            background: #ffffff;
+            border-radius: 25px;
+            padding: 12px 25px;
+            font-weight: bold;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: 0.2s;
+        }
+
+        /* 병원 찾기 버튼 - 초록색 */
+        #myLocationBtn {
+            border-color: #44b44a;
+            color: #2e7d32;
+        }
+        #myLocationBtn:hover {
+            background: #44b44a;
+            color: #fff;
+        }
+
+        /* 응급실 찾기 버튼 - 빨간색 */
+        #emergencyBtn {
+            border-color: #D32F2F;
+            color: #b71c1c;
+        }
+        #emergencyBtn:hover {
+            background: #D32F2F;
+            color: #fff;
+        }
+
+        /* 약국 찾기 버튼 - 주황색 */
+        #pharmacyBtn {
+            border-color: #fa8253;
+            color: #d35c2d;
+        }
+        #pharmacyBtn:hover {
+            background: #fa8253;
+            color: #fff;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            flex: 1;
+            display: flex;
+            background: #fff;
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 20px 0;
+            border: 1px solid #eee;
+        }
+        #map {
+            flex: 2;
+            height: 100%;
+            min-height: 500px;
+        }
+        .right-panel {
+            flex: 1;
+            background: #fff;
+            border-left: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            min-width: 350px;
+        }
+        .panel-header {
+            padding: 18px 20px;
+            font-weight: 700;
+            border-bottom: 1px solid #eee;
+        }
+        #hospital-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        .hospital-item {
+            background: #fff;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #f0f0f0;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+        .hospital-item:hover {
+            border-color: #4CAF50;
+        }
+        .detail-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #d84066;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            margin-top: 10px;
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -50,13 +176,14 @@
         
         <button id="myLocationBtn">🔍 병원 찾기</button>
         <button id="emergencyBtn">🚨 응급실 찾기</button>
-        <button id="pharmacyBtn" style="background: #FF9800; margin-left: 5px;">💊 약국 찾기</button>
+        <button id="pharmacyBtn" style="margin-left: 5px;">💊 약국 찾기</button>
         
         <div id="status-msg" style="display:none;"></div>
     </div>
 
     <div class="container">
         <div id="map"></div>
+
         <div class="right-panel">
             <div class="panel-header">📋 검색 결과 목록</div>
             <div id="hospital-list">
@@ -70,7 +197,7 @@
     </div>
 
     <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_key }}&libraries=services&autoload=false"></script>
-    
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+
 </body>
 </html>
