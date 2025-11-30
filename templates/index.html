@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WITH - 내 주변 병원 찾기</title>
 
-    <!-- SUIT 폰트 -->
     <link href="https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/static/woff2/SUIT.css" rel="stylesheet">
 
     <style>
@@ -33,13 +32,13 @@
             margin: 0;
             font-size: 3.3rem;
             font-weight: 900;
-            color: #fff0f0;   /* 제목 색 변경 */
+            color: #fff0f0;
         }
 
         .logo-area p {
             margin-top: 8px;
             font-weight: 500;
-            color: #fff0f0;   /* 부제 색 변경 */
+            color: #fff0f0;
         }
 
         #control-box {
@@ -106,7 +105,7 @@
         #pharmacyBtn:hover,
         #pharmacyBtn.active {
             background: #fa8253;
-            color:white;
+            color: white;
         }
 
         .container {
@@ -118,8 +117,8 @@
             border-radius: 20px;
             overflow: hidden;
             margin-top: 25px;
-            margin-bottom: 30px;   /* ⭐ 지도 아래 여백 추가 ⭐ */
-            border: 2px solid #318f55;  /* ⭐ 테두리 색(그라데이션 중간톤) ⭐ */
+            margin-bottom: 30px;
+            border: 2px solid #318f55;
         }
 
         #map { flex: 2; min-height: 500px; }
@@ -135,9 +134,9 @@
             padding: 18px 20px;
             font-weight: 700;
             border-bottom: 1px solid #eee;
-            background: #318f55;  
-            color: white;          /* 글씨는 흰색이 잘 어울림 */
-            border-radius: 0px 15px 0 0; /* 상단만 둥글게(선택사항) */
+            background: #318f55;
+            color: white;
+            border-radius: 0px 15px 0 0;
         }
 
         #hospital-list {
@@ -158,6 +157,64 @@
         .hospital-item.active {
             border-color: #4CAF50;
             background: #f8fff8;
+        }
+
+        /* --- 챗봇 스타일 추가 --- */
+        #chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            height: 500px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: none;
+            flex-direction: column;
+            z-index: 9999;
+            overflow: hidden;
+            border: 1px solid #ddd;
+        }
+        #chat-header {
+            background: #007bff;
+            color: white;
+            padding: 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #chat-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            font-size: 14px;
+        }
+        .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 10px; max-width: 80%; }
+        .user-msg { background: #007bff; color: white; margin-left: auto; text-align: right; }
+        .bot-msg { background: #e9ecef; color: black; margin-right: auto; }
+        
+        #chat-input-area {
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 5px;
+        }
+        #chat-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #007bff;
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 9999;
         }
     </style>
 </head>
@@ -199,30 +256,109 @@
     </div>
 </div>
 
+<button id="chat-btn" onclick="toggleChat()">💬</button>
+
+<div id="chat-container">
+    <div id="chat-header">
+        <span>WITH AI 의료상담</span>
+        <button onclick="toggleChat()" style="background:none;border:none;color:white;cursor:pointer;">✕</button>
+    </div>
+    <div id="chat-messages">
+        <div class="msg bot-msg">안녕하세요! 어디가 불편하신가요? 증상을 말씀해주시면 진료과를 추천해드릴게요.</div>
+    </div>
+    <div id="chat-input-area">
+        <input type="text" id="user-input" placeholder="예: 배가 너무 아파요..." style="flex:1; padding:8px;" onkeypress="if(event.keyCode==13) sendMessage()">
+        <button onclick="sendMessage()" style="padding:8px 15px; background:#007bff; color:white; border:none; border-radius:4px;">전송</button>
+    </div>
+</div>
+
 <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_key }}&libraries=services&autoload=false"></script>
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 
 <script>
-/* active 버튼 유지 */
-function setActiveButton(id) {
-    const ids = ["myLocationBtn", "emergencyBtn", "pharmacyBtn"];
+    /* 기존 버튼 스타일 로직 */
+    function setActiveButton(id) {
+        const ids = ["myLocationBtn", "emergencyBtn", "pharmacyBtn"];
 
-    ids.forEach(btn => {
-        const el = document.getElementById(btn);
-        if (btn === id) el.classList.add("active");
-        else el.classList.remove("active");
+        ids.forEach(btn => {
+            const el = document.getElementById(btn);
+            if (btn === id) el.classList.add("active");
+            else el.classList.remove("active");
+        });
+    }
+
+    document.getElementById("myLocationBtn").addEventListener("click", () => {
+        setActiveButton("myLocationBtn");
     });
-}
+    document.getElementById("emergencyBtn").addEventListener("click", () => {
+        setActiveButton("emergencyBtn");
+    });
+    document.getElementById("pharmacyBtn").addEventListener("click", () => {
+        setActiveButton("pharmacyBtn");
+    });
 
-document.getElementById("myLocationBtn").addEventListener("click", () => {
-    setActiveButton("myLocationBtn");
-});
-document.getElementById("emergencyBtn").addEventListener("click", () => {
-    setActiveButton("emergencyBtn");
-});
-document.getElementById("pharmacyBtn").addEventListener("click", () => {
-    setActiveButton("pharmacyBtn");
-});
+    /* --- 챗봇 JS 로직 --- */
+    function toggleChat() {
+        const box = document.getElementById('chat-container');
+        const btn = document.getElementById('chat-btn');
+        if (box.style.display === 'none' || box.style.display === '') {
+            box.style.display = 'flex';
+            btn.style.display = 'none';
+        } else {
+            box.style.display = 'none';
+            btn.style.display = 'block';
+        }
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('user-input');
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        // 사용자 메시지 표시
+        addMessage(msg, 'user-msg');
+        input.value = '';
+
+        // 로딩 표시
+        const loadingId = addMessage('...', 'bot-msg');
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: msg })
+            });
+            const data = await response.json();
+            
+            // 로딩 메시지 삭제 후 응답 표시
+            document.getElementById(loadingId).remove();
+            
+            if (data.reply) {
+                addMessage(data.reply, 'bot-msg');
+            } else {
+                addMessage("죄송합니다. 오류가 발생했습니다.", 'bot-msg');
+            }
+        } catch (err) {
+            console.error(err);
+            document.getElementById(loadingId).remove();
+            addMessage("서버 연결 실패 ㅠㅠ", 'bot-msg');
+        }
+    }
+
+    function addMessage(text, className) {
+        const div = document.createElement('div');
+        const id = 'msg-' + Date.now();
+        div.id = id;
+        div.className = `msg ${className}`;
+        div.innerText = text;
+        document.getElementById('chat-messages').appendChild(div);
+        
+        // 스크롤 맨 아래로
+        const chatBox = document.getElementById('chat-messages');
+        chatBox.scrollTop = chatBox.scrollHeight;
+        
+        return id;
+    }
 </script>
 
 </body>
