@@ -243,19 +243,55 @@
 
         #chat-btn {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: #007bff;
-            color: white;
+            bottom: 25px;
+            right: 25px;
+            width: 80px;  /* 크기 조절 */
+            height: 80px; /* 크기 조절 */
+            background: none; /* 배경 투명하게 */
             border: none;
-            font-size: 24px;
+            padding: 0;
             cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             z-index: 9999;
+            /* transition 제거 (개별 요소에 적용) */
         }
+
+        /* 의사 이미지 스타일 */
+        .doctor-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            background-color: #ffffff; /* 흰색 배경 */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+
+        /* 말풍선 아이콘 스타일 */
+        .bubble-icon {
+            position: absolute;
+            top: -20px;     /* 위치 조절 */
+            right: -5px;   /* 위치 조절 */
+            width: 35px;   /* 크기 조절 */
+            height: 35px;  /* 크기 조절 */
+            font-size: 30px;  /* 35px -> 50px (크기 확대!) */
+            /* 말풍선 이미지가 투명 배경이면 box-shadow 제거 */
+            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.2));
+            animation: float 2s ease-in-out infinite; /* 둥둥 떠다니는 애니메이션 */
+            }
+
+/* 둥둥 떠다니는 애니메이션 정의 */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+        }
+
+        #chat-btn:hover .doctor-img {
+            transform: scale(1.1);
+        }
+
+            /* 버튼 안의 이미지 스타일 추가 */
+        
     </style>
 </head>
 
@@ -296,7 +332,11 @@
     </div>
 </div>
 
-<button id="chat-btn" onclick="toggleChat()">💬</button>
+<button id="chat-btn" onclick="toggleChat()">
+    <img src="/static/doctor.png" alt="의료상담" class="doctor-img">
+    <span class="bubble-icon">💬</span>
+    
+</button>
 
 <div id="chat-container">
     <div id="chat-header">
