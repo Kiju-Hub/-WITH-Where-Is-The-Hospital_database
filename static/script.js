@@ -25,15 +25,40 @@ document.addEventListener("DOMContentLoaded", function() {
         ps = new kakao.maps.services.Places();
     });
 
-    // 2. 버튼 이벤트 리스너 연결
+    // 2. 버튼 이벤트 리스너 연결 (수정됨)
     const btn = document.getElementById("myLocationBtn");
-    if (btn) btn.addEventListener("click", () => handleSearch('hospital'));
+    if (btn) btn.addEventListener("click", () => {
+        handleSearch('hospital');
+        setActiveButton('myLocationBtn'); // 버튼 색상 변경
+    });
 
     const erBtn = document.getElementById("emergencyBtn");
-    if (erBtn) erBtn.addEventListener("click", () => handleSearch('emergency'));
+    if (erBtn) erBtn.addEventListener("click", () => {
+        handleSearch('emergency');
+        setActiveButton('emergencyBtn'); // 버튼 색상 변경
+    });
 
     const pharmBtn = document.getElementById("pharmacyBtn");
-    if (pharmBtn) pharmBtn.addEventListener("click", () => handleSearch('pharmacy'));
+    if (pharmBtn) pharmBtn.addEventListener("click", () => {
+        handleSearch('pharmacy');
+        setActiveButton('pharmacyBtn'); // 버튼 색상 변경
+    });
+
+    // [추가] 버튼 활성화 스타일 적용 함수
+    function setActiveButton(activeId) {
+        const ids = ["myLocationBtn", "emergencyBtn", "pharmacyBtn"];
+        
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                if (id === activeId) {
+                    el.classList.add("active"); // 선택된 버튼에 active 클래스 추가
+                } else {
+                    el.classList.remove("active"); // 나머지는 제거
+                }
+            }
+        });
+    }
 
     // --- [공통 검색 핸들러] ---
     function handleSearch(type) {
@@ -78,12 +103,14 @@ document.addEventListener("DOMContentLoaded", function() {
             // 타입별 데이터 로드 분기
             if (type === 'emergency') {
                 await loadEmergency(lat, lon);
+                setActiveButton("emergencyBtn");
             } else if (type === 'pharmacy') {
                 // [NEW] 약국 전용 API 호출
                 await loadPharmacies(lat, lon);
             } else {
                 // 일반 병원 호출
                 await loadHospitals(lat, lon, keyword, radius);
+                setActiveButton("myLocationBtn");
             }
             
             statusMsg.innerText = "✅ 완료!";
@@ -110,6 +137,8 @@ document.addEventListener("DOMContentLoaded", function() {
             
             renderMarkers(data, 'hospital');
             renderList(data, 'hospital');
+
+            setActiveButton("myLocationBtn");
         } catch (error) {
             console.error(error);
             alert("병원 데이터 서버 오류");
@@ -171,7 +200,7 @@ document.addEventListener("DOMContentLoaded", function() {
         
         // 타입에 따라 이미지 선택 (약국이면 별모양, 병원이면 파랑)
         const imgSrc = (type === 'pharmacy') ? IMG_STAR : IMG_BLUE;
-        const markerImg = new kakao.maps.MarkerImage(imgSrc, size);
+        const markerImg = new kakao.maps.MarkerImage(IMG_GREEN_PIN, size);
 
         list.forEach((item, index) => {
             const marker = new kakao.maps.Marker({
