@@ -20,9 +20,11 @@ CORS(app)
 
 CSV_FILE = os.path.join(os.path.dirname(__file__), "data", "hospitals.csv")
 
-PUBLIC_KEY = os.getenv("PUBLIC_DATA_API_KEY")
-KAKAO_KEY = os.getenv("KAKAO_MAP_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# .env 파일에서 API 키 로드
+PUBLIC_KEY = os.getenv("PUBLIC_DATA_API_KEY")      # 응급실용 키
+KAKAO_KEY = os.getenv("KAKAO_MAP_API_KEY")         # 카카오맵 키
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")       # OpenAI 키
+PHARMACY_KEY = os.getenv("PHARMACY_API_KEY")       # [수정됨] 약국용 키 (환경변수 사용)
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -91,39 +93,43 @@ def get_hospitals():
     user_lat = request.args.get("lat", type=float)
     user_lon = request.args.get("lon", type=float)
     keyword = request.args.get("keyword", default="", type=str)
-    radius_km = request.args.get("radius", default=3.0, type=float)
+    radius_km = request.args.get("radius", default=3.0, type=float) # 반경 받기
 
     if user_lat is None or user_lon is None:
         return jsonify({"error": "위치 정보가 필요합니다."}), 400
 
     result = []
 
-    with open(CSV_FILE, encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            try:
-                if not row["좌표(Y)"] or not row["좌표(X)"]:
+    try:
+        with open(CSV_FILE, encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    if not row.get("좌표(Y)") or not row.get("좌표(X)"):
+                        continue
+
+                    name = row["요양기관명"]
+                    if keyword and keyword not in name:
+                        continue
+
+                    h_lat = float(row["좌표(Y)"])
+                    h_lon = float(row["좌표(X)"])
+                    dist = calculate_distance(user_lat, user_lon, h_lat, h_lon)
+
+                    # [필터링] 선택한 반경 이내만 추가
+                    if dist <= radius_km:
+                        result.append({
+                            "name": name,
+                            "address": row["주소"],
+                            "phone": row["전화번호"],
+                            "lat": h_lat,
+                            "lng": h_lon,
+                            "distance": round(dist, 2)
+                        })
+                except ValueError:
                     continue
-
-                name = row["요양기관명"]
-                if keyword and keyword not in name:
-                    continue
-
-                h_lat = float(row["좌표(Y)"])
-                h_lon = float(row["좌표(X)"])
-                dist = calculate_distance(user_lat, user_lon, h_lat, h_lon)
-
-                if dist <= radius_km:
-                    result.append({
-                        "name": name,
-                        "address": row["주소"],
-                        "phone": row["전화번호"],
-                        "lat": h_lat,
-                        "lng": h_lon,
-                        "distance": round(dist, 2)
-                    })
-            except:
-                continue
+    except FileNotFoundError:
+        return jsonify({"error": "CSV 파일이 없습니다."}), 500
 
     result.sort(key=lambda x: x["distance"])
     return jsonify(result)
@@ -137,16 +143,23 @@ def get_emergency():
     user_lat = request.args.get("lat", type=float)
     user_lon = request.args.get("lon", type=float)
 
+    # 응급실 검색 (기존 유지)
     url = "http://apis.data.go.kr/B552657/ErmctInfoInqireService/getEmrrmRltmUsefulSckbdInfoInqire"
     params = {
-        "serviceKey": PUBLIC_KEY,
+        "serviceKey": PUBLIC_KEY, # 응급실은 기존 PUBLIC_KEY 사용
         "STAGE1": "인천광역시",
         "numOfRows": "100"
     }
 
-    response = requests.get(url, params=params)
-    data = xmltodict.parse(response.content)
+    try:
+        response = requests.get(url, params=params)
+        data = xmltodict.parse(response.content)
+    except Exception as e:
+        return jsonify({"error": f"공공데이터 통신 오류: {str(e)}"}), 500
 
+    if "response" not in data or "body" not in data["response"] or "items" not in data["response"]["body"]:
+        return jsonify([])
+        
     items = data["response"]["body"]["items"]
     if not items:
         return jsonify([])
@@ -155,20 +168,23 @@ def get_emergency():
     if not isinstance(items, list):
         items = [items]
 
-    # 병원 좌표 매칭
+    # CSV 매칭용 데이터 로드
     coords = {}
-    with open(CSV_FILE, encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        for r in reader:
-            try:
-                coords[r["요양기관명"]] = {
-                    "lat": float(r["좌표(Y)"]),
-                    "lng": float(r["좌표(X)"]),
-                    "addr": r["주소"],
-                    "phone": r["전화번호"]
-                }
-            except:
-                continue
+    try:
+        with open(CSV_FILE, encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for r in reader:
+                try:
+                    coords[r["요양기관명"]] = {
+                        "lat": float(r["좌표(Y)"]),
+                        "lng": float(r["좌표(X)"]),
+                        "addr": r["주소"],
+                        "phone": r["전화번호"]
+                    }
+                except:
+                    continue
+    except:
+        pass 
 
     result = []
     for item in items:
@@ -195,62 +211,81 @@ def get_emergency():
 
 
 # ================================
-# [API 3] 실시간 약국
+# [API 3] 실시간 약국 (환경변수 키 + 반경 필터링 적용)
 # ================================
 @app.route("/api/pharmacy")
 def get_pharmacy():
     user_lat = request.args.get("lat", type=float)
     user_lon = request.args.get("lon", type=float)
+    # [수정] 반경 정보 받기 (기본값 3.0km)
+    radius_km = request.args.get("radius", default=3.0, type=float)
 
     if user_lat is None or user_lon is None:
         return jsonify({"error": "위치 정보가 필요합니다."}), 400
 
     url = "http://apis.data.go.kr/B552657/ErmctInsttInfoInqireService/getParmacyLcinfoInqire"
+    
+    # [수정] .env에서 불러온 PHARMACY_KEY 사용
+    # numOfRows를 200으로 늘려 넓은 반경 검색 대비
     params = {
-        "serviceKey": PUBLIC_KEY,
+        "serviceKey": PHARMACY_KEY, 
         "WGS84_LON": user_lon,
         "WGS84_LAT": user_lat,
         "pageNo": "1",
-        "numOfRows": "50"
+        "numOfRows": "200" 
     }
 
-    response = requests.get(url, params=params)
-    data = xmltodict.parse(response.content)
+    try:
+        response = requests.get(url, params=params)
+        try:
+            data = xmltodict.parse(response.content)
+        except:
+             return jsonify({"error": "공공데이터 응답 파싱 실패"}), 502
 
-    items = data["response"]["body"]["items"]
-    if not items:
-        return jsonify([])
+        if "response" not in data or "body" not in data["response"] or "items" not in data["response"]["body"]:
+             return jsonify([])
 
-    items = items["item"]
-    if not isinstance(items, list):
-        items = [items]
+        items = data["response"]["body"]["items"]
+        if items is None:
+            return jsonify([])
 
-    result = []
-    for item in items:
-        lat = safe_float(item.get("wgs84Lat"))
-        lon = safe_float(item.get("wgs84Lon"))
+        items = items["item"]
+        if not isinstance(items, list):
+            items = [items]
 
-        if lat is None or lon is None:
-            continue
+        result = []
+        for item in items:
+            lat = safe_float(item.get("wgs84Lat"))
+            lon = safe_float(item.get("wgs84Lon"))
 
-        dist = calculate_distance(user_lat, user_lon, lat, lon)
+            if lat is None or lon is None:
+                continue
 
-        result.append({
-            "name": item.get("dutyName"),
-            "address": item.get("dutyAddr"),
-            "phone": item.get("dutyTel1"),
-            "lat": lat,
-            "lng": lon,
-            "distance": round(dist, 2),
-            "status": is_pharmacy_open(item)
-        })
+            dist = calculate_distance(user_lat, user_lon, lat, lon)
 
-    result.sort(key=lambda x: (x["status"] != "영업중", x["distance"]))
-    return jsonify(result)
+            # [수정] 계산된 거리가 사용자가 선택한 반경(radius_km) 이내인 경우만 결과에 포함
+            if dist <= radius_km:
+                result.append({
+                    "name": item.get("dutyName"),
+                    "address": item.get("dutyAddr"),
+                    "phone": item.get("dutyTel1"),
+                    "lat": lat,
+                    "lng": lon,
+                    "distance": round(dist, 2),
+                    "status": is_pharmacy_open(item)
+                })
+
+        # 가까운 순 + 영업중 우선 정렬
+        result.sort(key=lambda x: (x["status"] != "영업중", x["distance"]))
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Pharmacy API Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ================================
-# [API 4] AI 챗봇 (OpenAI 최신 SDK)
+# [API 4] AI 챗봇 (OpenAI)
 # ================================
 @app.route("/api/chat", methods=["POST"])
 def chat_bot():

@@ -6,7 +6,7 @@ document.addEventListener("DOMContentLoaded", function() {
     let selectedMarkerIndex = -1;
 
     // --- [이미지 주소 정의] ---
-    const IMG_BLUE = "https://t1.daumcdn.net/mapjsapi/images/marker.png"; // 병원 (기본 파랑)
+    const IMG_BLUE = "https://t1.daumcdn.net/mapjsapi/images/marker.png"; // 병원 (기본 파랑) //기존 병원 파랑에서 응급실 마커로 동일하게 변경.
     // 약국용 (노란색 별 마커)
     const IMG_STAR = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png"; 
     
@@ -147,18 +147,25 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // 2. [NEW] 약국 데이터 로드
     async function loadPharmacies(lat, lon) {
-        try {
-            const url = `/api/pharmacy?lat=${lat}&lon=${lon}`;
-            const res = await fetch(url);
-            const data = await res.json();
+        // 반경 선택값 가져오기
+        const radius = document.getElementById("radiusSelect").value;
 
+        try {
+            const url = `/api/pharmacy?lat=${lat}&lon=${lon}&radius=${radius}`;
+            
+            const res = await fetch(url);
+            
+            // [중요] 이 줄이 없으면 'data is not defined' 오류가 납니다!
+            const data = await res.json(); 
+
+            // 데이터가 없거나 비어있을 때 처리
             if (!data || data.length === 0) {
-                alert("주변에 약국 데이터가 없습니다.");
+                alert(`주변 ${radius}km 이내에 약국 검색 결과가 없습니다.`);
                 return;
             }
 
-            renderMarkers(data, 'pharmacy'); // 약국 타입 전달
-            renderList(data, 'pharmacy');    // 약국 리스트 렌더링
+            renderMarkers(data, 'pharmacy'); 
+            renderList(data, 'pharmacy');
         } catch (error) {
             console.error(error);
             alert("약국 데이터 서버 오류");
