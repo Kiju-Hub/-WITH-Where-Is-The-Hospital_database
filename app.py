@@ -7,7 +7,8 @@ import requests
 import xmltodict
 from dotenv import load_dotenv
 from datetime import datetime
-from openai import OpenAI   # 최신 SDK
+from openai import OpenAI
+from urllib.parse import unquote
 
 # ================================
 # 초기 설정
@@ -21,10 +22,10 @@ CORS(app)
 CSV_FILE = os.path.join(os.path.dirname(__file__), "data", "hospitals.csv")
 
 # .env 파일에서 API 키 로드
-PUBLIC_KEY = os.getenv("PUBLIC_DATA_API_KEY")      # 응급실용 키
-KAKAO_KEY = os.getenv("KAKAO_MAP_API_KEY")         # 카카오맵 키
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")       # OpenAI 키
-PHARMACY_KEY = os.getenv("PHARMACY_API_KEY")       # [수정됨] 약국용 키 (환경변수 사용)
+PUBLIC_KEY = os.getenv("PUBLIC_DATA_API_KEY")
+KAKAO_KEY = os.getenv("KAKAO_MAP_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+PHARMACY_KEY = os.getenv("PHARMACY_API_KEY")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -52,23 +53,75 @@ def safe_float(val):
     except:
         return None
 
+# 시간 문자열 포맷팅 함수 [추가]
+def format_time(time_str):
+    """'0900' -> '09:00'"""
+    if time_str and len(str(time_str)) == 4:
+        # 안전을 위해 str()로 변환 후 처리
+        s = str(time_str)
+        return f"{s[:2]}:{s[2:]}"
+    return "정보없음"
 
-# 약국 영업시간 판별
+# 전체 영업 시간 요약 함수 [추가]
+def format_all_pharmacy_hours(item):
+    """요일별 영업시간을 보기 좋게 포맷합니다."""
+    days = ["월", "화", "수", "목", "금", "토", "일"]
+    formatted_hours = []
+    
+    # 공공데이터 포털은 1=월, 7=일을 사용
+    for i in range(1, 8):
+        start_key = f"dutyTime{i}s"
+        end_key = f"dutyTime{i}c"
+        
+        start = item.get(start_key)
+        end = item.get(end_key)
+        
+        day_name = days[i-1]
+        
+        if start and end:
+            start_f = format_time(start)
+            end_f = format_time(end)
+            if start_f != "정보없음" and end_f != "정보없음":
+                formatted_hours.append(f"{day_name}: {start_f} ~ {end_f}")
+            else:
+                 formatted_hours.append(f"{day_name}: 시간 확인 불가")
+        else:
+            # 해당 요일의 정보가 아예 없거나 (휴무) 불완전한 경우
+            formatted_hours.append(f"{day_name}: 휴무 또는 정보없음")
+
+    # 모든 요일 정보가 없다면 빈 문자열 반환
+    if all("정보없음" in h or "휴무" in h or "확인 불가" in h for h in formatted_hours):
+         return "" 
+         
+    return " | ".join(formatted_hours)
+
+# 약국 영업시간 판별 [수정됨]
 def is_pharmacy_open(item):
     now = datetime.now()
     weekdays = ["1", "2", "3", "4", "5", "6", "7"]
-    day_code = weekdays[now.weekday()]
+    day_code = weekdays[now.weekday()] 
 
     start_key = f"dutyTime{day_code}s"
     end_key = f"dutyTime{day_code}c"
 
-    if start_key not in item or end_key not in item:
+    # .get()으로 값을 가져오고, 값이 유효한지 (None이나 빈 문자열이 아닌지) 확인합니다.
+    start_time_str = item.get(start_key)
+    end_time_str = item.get(end_key)
+    
+    if not start_time_str or not end_time_str:
         return "정보없음"
 
     try:
         current = int(now.strftime("%H%M"))
-        start = int(item[start_key])
-        end = int(item[end_key])
+        start = int(start_time_str)
+        end = int(end_time_str)
+        
+        # 새벽까지 영업하는 경우 (예: 2200 시작, 0200 종료) 처리
+        if end <= 2400 and end < start:
+             if current >= start or current <= end:
+                 return "영업중"
+             return "영업종료"
+
 
         if start <= current <= end:
             return "영업중"
@@ -93,7 +146,7 @@ def get_hospitals():
     user_lat = request.args.get("lat", type=float)
     user_lon = request.args.get("lon", type=float)
     keyword = request.args.get("keyword", default="", type=str)
-    radius_km = request.args.get("radius", default=3.0, type=float) # 반경 받기
+    radius_km = request.args.get("radius", default=3.0, type=float)
 
     if user_lat is None or user_lon is None:
         return jsonify({"error": "위치 정보가 필요합니다."}), 400
@@ -116,7 +169,6 @@ def get_hospitals():
                     h_lon = float(row["좌표(X)"])
                     dist = calculate_distance(user_lat, user_lon, h_lat, h_lon)
 
-                    # [필터링] 선택한 반경 이내만 추가
                     if dist <= radius_km:
                         result.append({
                             "name": name,
@@ -143,10 +195,10 @@ def get_emergency():
     user_lat = request.args.get("lat", type=float)
     user_lon = request.args.get("lon", type=float)
 
-    # 응급실 검색 (기존 유지)
     url = "http://apis.data.go.kr/B552657/ErmctInfoInqireService/getEmrrmRltmUsefulSckbdInfoInqire"
+    
     params = {
-        "serviceKey": PUBLIC_KEY, # 응급실은 기존 PUBLIC_KEY 사용
+        "serviceKey": unquote(PUBLIC_KEY), 
         "STAGE1": "인천광역시",
         "numOfRows": "100"
     }
@@ -168,7 +220,6 @@ def get_emergency():
     if not isinstance(items, list):
         items = [items]
 
-    # CSV 매칭용 데이터 로드
     coords = {}
     try:
         with open(CSV_FILE, encoding="utf-8-sig") as f:
@@ -211,13 +262,12 @@ def get_emergency():
 
 
 # ================================
-# [API 3] 실시간 약국 (환경변수 키 + 반경 필터링 적용)
+# [API 3] 실시간 약국 (좌표 처리 및 시간 추가)
 # ================================
 @app.route("/api/pharmacy")
 def get_pharmacy():
     user_lat = request.args.get("lat", type=float)
     user_lon = request.args.get("lon", type=float)
-    # [수정] 반경 정보 받기 (기본값 3.0km)
     radius_km = request.args.get("radius", default=3.0, type=float)
 
     if user_lat is None or user_lon is None:
@@ -225,25 +275,35 @@ def get_pharmacy():
 
     url = "http://apis.data.go.kr/B552657/ErmctInsttInfoInqireService/getParmacyLcinfoInqire"
     
-    # [수정] .env에서 불러온 PHARMACY_KEY 사용
-    # numOfRows를 200으로 늘려 넓은 반경 검색 대비
+    service_key_decoded = unquote(PHARMACY_KEY)
+
     params = {
-        "serviceKey": PHARMACY_KEY, 
+        "serviceKey": service_key_decoded,
         "WGS84_LON": user_lon,
         "WGS84_LAT": user_lat,
         "pageNo": "1",
-        "numOfRows": "200" 
+        "numOfRows": "200"
     }
 
     try:
         response = requests.get(url, params=params)
+        
+        print("🔍 약국 데이터 응답(Raw):", response.text[:500]) 
+
         try:
             data = xmltodict.parse(response.content)
         except:
              return jsonify({"error": "공공데이터 응답 파싱 실패"}), 502
 
+        if "OpenAPI_ServiceResponse" in data:
+            err_msg = data["OpenAPI_ServiceResponse"]["cmmMsgHeader"]["errMsg"]
+            print(f"🔥 공공데이터 API 에러: {err_msg}")
+            return jsonify({"error": err_msg}), 500
+
         if "response" not in data or "body" not in data["response"] or "items" not in data["response"]["body"]:
+             print("⚠️ 데이터 없음 (items 태그가 비어있음)")
              return jsonify([])
+        
 
         items = data["response"]["body"]["items"]
         if items is None:
@@ -255,16 +315,30 @@ def get_pharmacy():
 
         result = []
         for item in items:
+            
+            # wgs84 필드 우선 확인 후, 없으면 latitude/longitude 필드 확인
             lat = safe_float(item.get("wgs84Lat"))
             lon = safe_float(item.get("wgs84Lon"))
 
+            
+            
+            if lat is None or lon is None:
+                 lat = safe_float(item.get("latitude"))
+                 lon = safe_float(item.get("longitude")) 
+
             if lat is None or lon is None:
                 continue
-
+                
             dist = calculate_distance(user_lat, user_lon, lat, lon)
 
-            # [수정] 계산된 거리가 사용자가 선택한 반경(radius_km) 이내인 경우만 결과에 포함
             if dist <= radius_km:
+                
+                # 요일별 영업시간 데이터 수집 (시작~종료, 월~일)
+                hours_data = {}
+                for i in range(1, 8):
+                    hours_data[f"time{i}s"] = item.get(f"dutyTime{i}s")
+                    hours_data[f"time{i}c"] = item.get(f"dutyTime{i}c")
+                    
                 result.append({
                     "name": item.get("dutyName"),
                     "address": item.get("dutyAddr"),
@@ -272,15 +346,16 @@ def get_pharmacy():
                     "lat": lat,
                     "lng": lon,
                     "distance": round(dist, 2),
-                    "status": is_pharmacy_open(item)
+                    "status": is_pharmacy_open(item),
+                    "hours_raw": hours_data,
+                    "hours_summary": format_all_pharmacy_hours(item) # [수정] 요약된 시간 추가
                 })
 
-        # 가까운 순 + 영업중 우선 정렬
         result.sort(key=lambda x: (x["status"] != "영업중", x["distance"]))
         return jsonify(result)
 
     except Exception as e:
-        print(f"Pharmacy API Error: {e}")
+        print(f"🔥 Pharmacy API System Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 
