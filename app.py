@@ -154,7 +154,7 @@ def get_hospitals():
     result = []
 
     try:
-        with open(CSV_FILE, encoding="utf-8-sig") as f:
+        with open(CSV_FILE, encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 try:
